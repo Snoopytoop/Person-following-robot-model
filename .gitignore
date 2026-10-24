@@ -1,0 +1,15 @@
+
+# Python virtual environment
+.venv/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+
+# Downloaded COCO dataset
+val2017/
+train2017/
+annotations/
+
+# Prepared dataset files
+prepared/
