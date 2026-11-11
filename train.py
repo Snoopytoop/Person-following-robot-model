@@ -19,6 +19,8 @@ from model import build_fomo, weighted_cross_entropy
 parser = argparse.ArgumentParser(description="Train the FOMO person detector on COCO.")
 parser.add_argument("--size", type=int, default=96, help="input size in pixels")
 parser.add_argument("--alpha", type=float, default=0.35, help="MobileNetV2 width")
+parser.add_argument("--centre-region", type=float, default=1 / 3,
+                    help="fraction of each person's box marked as person (1 = whole box)")
 parser.add_argument("--stride", type=int, default=8, choices=[8, 16],
                     help="how many times the backbone shrinks the image (16 = deeper cut)")
 parser.add_argument("--batch", type=int, default=64, help="images per batch")
@@ -48,9 +50,9 @@ if args.quick:
 
 # Create the data loaders: augmented for training, plain for validation.
 train_data = FomoData(train_items, size=args.size, batch_size=args.batch, train=True,
-                      stride=args.stride)
+                      stride=args.stride, region=args.centre_region)
 val_data = FomoData(val_items, size=args.size, batch_size=args.batch, train=False,
-                    stride=args.stride)
+                    stride=args.stride, region=args.centre_region)
 
 # Print the dataset sizes.
 print(f"Training images: {len(train_items)}, validation images: {len(val_items)}")
@@ -69,7 +71,9 @@ models_dir.mkdir(exist_ok=True)
 
 # Name the output files after the input size and width, e.g. fomo_96_a035.
 # The person weight is part of the name so runs with different weights don't overwrite each other.
-name = (f"fomo_{args.size}_a{int(args.alpha * 100):03d}_s{args.stride}_w{args.person_weight:g}"
+# Runs with a non-default centre region get it in the name too, e.g. _c100 for the whole box.
+region_tag = "" if abs(args.centre_region - 1 / 3) < 1e-6 else f"_c{round(args.centre_region * 100)}"
+name = (f"fomo_{args.size}_a{int(args.alpha * 100):03d}_s{args.stride}_w{args.person_weight:g}{region_tag}"
         + ("_quick" if args.quick else ""))
 best_model_path = models_dir / f"{name}_best.h5"
 log_path = models_dir / f"{name}_log.csv"

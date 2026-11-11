@@ -84,7 +84,7 @@ def load_manifest(split):
 # 3. BUILDING THE TARGET GRID
 # --------------------------------------------------
 
-def boxes_to_grid(boxes, size, grid):
+def boxes_to_grid(boxes, size, grid, region=centre_region):
     """Convert pixel boxes on a size x size image into a grid x grid x 2 target.
 
     Channel 0 is background and channel 1 is person. Every cell is background
@@ -109,8 +109,9 @@ def boxes_to_grid(boxes, size, grid):
         centre_y = y + height / 2
 
         # Find the edges of the central region of the box.
-        half_width = width * centre_region / 2
-        half_height = height * centre_region / 2
+        # region is the fraction of the box marked as person (1/3 = middle third, 1 = whole box).
+        half_width = width * region / 2
+        half_height = height * region / 2
 
         # Select the columns and rows whose cell middles lie inside the central region.
         cols = np.nonzero(np.abs(cell_middles - centre_x) <= half_width)[0]
@@ -190,7 +191,8 @@ def make_augmentation(size, train):
 class FomoData(keras.utils.Sequence):
     """Supplies batches of (images, target grids) to Keras during training."""
 
-    def __init__(self, items, size=96, batch_size=64, train=True, stride=model_stride):
+    def __init__(self, items, size=96, batch_size=64, train=True, stride=model_stride,
+                 region=centre_region):
 
         # Initialise the parent Keras Sequence class.
         super().__init__()
@@ -203,6 +205,7 @@ class FomoData(keras.utils.Sequence):
 
         # Calculate the size of the output grid, e.g. 96 / 8 = 12.
         self.grid = size // stride
+        self.region = region
 
         # Create the training or validation transform.
         self.augmentation = make_augmentation(size, train)
@@ -266,7 +269,7 @@ class FomoData(keras.utils.Sequence):
         boxes = [list(box) for box in result["bboxes"]]
 
         # Build the target grid from the transformed boxes.
-        target = boxes_to_grid(boxes, self.size, self.grid)
+        target = boxes_to_grid(boxes, self.size, self.grid, self.region)
 
         # Return the transformed image, its boxes and its target grid.
         return result["image"], boxes, target
